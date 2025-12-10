@@ -132,3 +132,6 @@
 2025-12-10 22:01:51,185 INFO upload_media(246) File 20250428_064148.jpg saved successfully
 2025-12-10 22:01:51,240 INFO upload_media(244) Saving file 20250428_065802.mp4 to e:\chatRM\static\uploads\20251210_163151_xwyqhnc5.mp4
 2025-12-10 22:01:51,297 INFO upload_media(246) File 20250428_065802.mp4 saved successfully
+2025-12-10 22:20:17,409 INFO upload_media(223) Upload media request received
+2025-12-10 22:20:17,444 INFO upload_media(244) Saving file 20250428_070641.jpg to E:\chatRM\static\uploads\20251210_165017_r1v17j78.jpg
+2025-12-10 22:20:17,451 INFO upload_media(246) File 20250428_070641.jpg saved successfully

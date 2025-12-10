@@ -822,6 +822,32 @@ def serve_uploaded_file(filename):
 
 
 
+@app.route('/room/<int:room_id>/media')
+def get_room_media(room_id):
+    if 'username' not in session:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    user = User.query.filter_by(username=session['username']).first()
+    if not user:
+        return jsonify({'error': 'User not found'}), 401
+
+    room = Room.query.get_or_404(room_id)
+    if user not in room.users:
+        return jsonify({'error': 'Not authorized'}), 403
+
+    media_items = Media.query.join(Message).filter(Message.room_id == room_id).order_by(Message.timestamp.desc()).all()
+    
+    media_files_list = []
+    for media in media_items:
+        media_files_list.append({
+            'url': url_for('uploaded_file', filename=media.filename),
+            'filename': media.filename,
+            'file_type': media.file_type
+        })
+
+    return jsonify(media_files_list)
+
+
 if __name__ == '__main__':
     with app.app_context():
         try:

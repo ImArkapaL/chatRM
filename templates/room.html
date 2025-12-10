@@ -117,7 +117,7 @@
 <div class="container mt-4">
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">{{ room.name }}</h2>
+            <h2 class="card-title" id="room-title" style="cursor: pointer;">{{ room.name }}</h2>
         </div>
         <div class="card-body" id="messages" style="height: 400px; overflow-y: scroll;">
             {% set last_seen_id = last_seen_message_id|int %}
@@ -236,6 +236,23 @@
                 </div>
             </form>
             <input type="file" id="media-input" accept="image/*,video/*" multiple style="display: none;">
+        </div>
+    </div>
+</div>
+
+<!-- Media Gallery Modal -->
+<div id="media-gallery-modal" class="modal" style="display: none;">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Media Gallery</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close" onclick="closeMediaGallery()"></button>
+            </div>
+            <div class="modal-body">
+                <div id="media-gallery-grid" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 row-cols-lg-4 g-4">
+                    <!-- Media files will be injected here -->
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -1278,5 +1295,50 @@
             document.getElementById('message-form').requestSubmit();
         }
     });
+
+    document.getElementById('room-title').addEventListener('click', function() {
+        openMediaGallery();
+    });
+
+    function openMediaGallery() {
+        const galleryGrid = document.getElementById('media-gallery-grid');
+        galleryGrid.innerHTML = ''; // Clear previous content
+
+        fetch(`/room/{{ room.id }}/media`)
+            .then(response => response.json())
+            .then(mediaFiles => {
+                mediaFiles.forEach(media => {
+                    const col = document.createElement('div');
+                    col.className = 'col-4'; // Use col-4 to create a 3-column grid
+
+                    let mediaElement;
+                    if (media.file_type && media.file_type.startsWith('image/')) {
+                            mediaElement = document.createElement('img');
+                            mediaElement.src = `/uploads/${media.filename}`;
+                            mediaElement.className = 'img-fluid rounded';
+                            mediaElement.style.cursor = 'pointer';
+                            mediaElement.addEventListener('click', () => openMediaViewer(mediaElement.src, 'image'));
+                        } else if (media.file_type && media.file_type.startsWith('video/')) {
+                        mediaElement = document.createElement('video');
+                        mediaElement.src = `/uploads/${media.filename}`;
+                        mediaElement.className = 'img-fluid rounded';
+                        mediaElement.controls = true;
+                    }
+
+                    if (mediaElement) {
+                        col.appendChild(mediaElement);
+                        galleryGrid.appendChild(col);
+                    }
+                });
+
+                document.getElementById('media-gallery-modal').style.display = 'block';
+            })
+            .catch(error => console.error('Error fetching media gallery:', error));
+    }
+
+    function closeMediaGallery() {
+        document.getElementById('media-gallery-modal').style.display = 'none';
+    }
+
 </script>
 {% endblock %}
