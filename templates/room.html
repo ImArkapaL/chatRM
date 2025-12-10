@@ -68,21 +68,6 @@
         z-index: 10;
     }
 
-    #media-thumbnails-container {
-        display: flex;
-        justify-content: center;
-        margin-top: 10px;
-    }
-
-    #media-thumbnails-container .img-thumbnail {
-        opacity: 0.5;
-        transition: opacity 0.2s ease;
-    }
-
-    #media-thumbnails-container .img-thumbnail.active {
-        opacity: 1;
-    }
-
     @media (min-width: 768px) {
         #media-viewer-modal .modal-dialog {
             max-width: 90vw;
@@ -270,8 +255,15 @@
                     <div class="carousel-inner" id="media-carousel-inner">
                         <!-- Media items will be injected here -->
                     </div>
+                    <button class="carousel-control-prev" type="button" data-bs-target="#media-carousel" data-bs-slide="prev">
+                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Previous</span>
+                    </button>
+                    <button class="carousel-control-next" type="button" data-bs-target="#media-carousel" data-bs-slide="next">
+                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+                        <span class="visually-hidden">Next</span>
+                    </button>
                 </div>
-                <div id="media-thumbnails-container" class="w-75 mt-2 d-flex justify-content-center flex-wrap"></div>
                 <div class="w-75 mt-3">
                     <input type="text" id="media-caption-input" class="form-control bg-secondary text-white border-0" placeholder="Add a caption...">
                 </div>
@@ -850,8 +842,8 @@
 
         function showMediaPreview() {
             const mediaCarouselInner = document.getElementById('media-carousel-inner');
-            mediaCarouselInner.innerHTML = '';
-            document.getElementById('media-caption-input').value = '';
+            mediaCarouselInner.innerHTML = ''; // Clear previous previews
+            document.getElementById('media-caption-input').value = ''; // Clear previous caption
 
             selectedMediaFiles.forEach((file, index) => {
                 const fileReader = new FileReader();
@@ -881,50 +873,29 @@
             });
 
             document.getElementById('media-preview-modal').style.display = 'block';
-            renderThumbnails();
-            updateRemoveButtonListeners();
-        }
 
-        function renderThumbnails() {
-            const mediaThumbnailsContainer = document.getElementById('media-thumbnails-container');
-            mediaThumbnailsContainer.innerHTML = '';
-            const activeCarouselItem = document.querySelector('#media-carousel-inner .carousel-item.active');
-            const activeIndex = activeCarouselItem ? parseInt(activeCarouselItem.dataset.fileIndex) : 0;
-
-            selectedMediaFiles.forEach((file, index) => {
-                const fileReader = new FileReader();
-                fileReader.onload = function(e) {
-                    const thumbnail = document.createElement('img');
-                    thumbnail.src = e.target.result;
-                    thumbnail.className = `img-thumbnail m-1 ${index === activeIndex ? 'active' : ''}`;
-                    thumbnail.style.cursor = 'pointer';
-                    thumbnail.style.height = '50px';
-                    thumbnail.setAttribute('data-file-index', index);
-                    thumbnail.addEventListener('click', () => {
-                        const carouselItems = document.querySelectorAll('#media-carousel-inner .carousel-item');
-                        carouselItems.forEach(item => item.classList.remove('active'));
-                        const targetCarouselItem = document.querySelector(`#media-carousel-inner .carousel-item[data-file-index='${index}']`);
-                        if (targetCarouselItem) {
-                            targetCarouselItem.classList.add('active');
-                        }
-                        renderThumbnails();
-                    });
-                    mediaThumbnailsContainer.appendChild(thumbnail);
-                };
-                fileReader.readAsDataURL(file);
-            });
-        }
-
-        function updateRemoveButtonListeners() {
+            // Add event listener for removing media items
             document.querySelectorAll('.remove-media-item').forEach(button => {
                 button.addEventListener('click', function() {
                     const fileIndex = parseInt(this.dataset.fileIndex);
+                    const carouselItem = this.closest('.carousel-item');
+                    const wasActive = carouselItem.classList.contains('active');
+                    carouselItem.remove();
+
                     selectedMediaFiles.splice(fileIndex, 1);
-                    if (selectedMediaFiles.length === 0) {
+
+                    const remainingItems = document.querySelectorAll('#media-carousel-inner .carousel-item');
+                    if (remainingItems.length === 0) {
                         closeMediaPreview();
-                    } else {
-                        showMediaPreview();
+                    } else if (wasActive) {
+                        remainingItems[0].classList.add('active');
                     }
+
+                    // Re-index the remaining items
+                    remainingItems.forEach((item, newIndex) => {
+                        item.setAttribute('data-file-index', newIndex);
+                        item.querySelector('.remove-media-item').setAttribute('data-file-index', newIndex);
+                    });
                 });
             });
         }
