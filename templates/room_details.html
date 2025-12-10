@@ -1,0 +1,21 @@
+<div class="modal-header">
+    <h5 class="modal-title">{{ room.name }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+</div>
+<div class="modal-body">
+    <p><strong>Room ID:</strong> {{ room.room_id }}</p>
+    <p><strong>Members:</strong></p>
+    <ul>
+        {% for user in users %}
+            <li>
+                {{ user.username }} 
+                {% if user.status == 'online' %}
+                    <span class="badge bg-success">Online</span>
+                {% else %}
+                    <span class="badge bg-secondary">Offline</span>
+                    <small class="text-muted">(Last seen: {{ user.last_seen }})</small>
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+</div>

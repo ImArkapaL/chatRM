@@ -1,0 +1,1236 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ room.name }}{% endblock %}
+
+{% block styles %}
+<style>
+    .unread-message {
+        background-color: #e9f5ff;
+        border-left: 3px solid #0d6efd;
+    }
+
+    .highlight {
+        background-color: #ffc107;
+        transition: background-color 0.5s ease;
+    }
+
+    /* Custom styles for media preview modal */
+    #media-preview-modal .modal-content {
+        background-color: #222;
+    }
+
+    #media-preview-modal .modal-header {
+        border-bottom: none;
+    }
+
+    #media-preview-modal .modal-title {
+        color: #fff;
+    }
+
+    #media-preview-modal .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+
+    #media-preview-modal .carousel-item {
+        height: auto;
+        max-height: 70vh;
+        display: flex;
+    }
+
+    #media-preview-modal .carousel-item img,
+    #media-preview-modal .carousel-item video {
+        max-height: 100%;
+        max-width: 100%;
+        object-fit: contain;
+    }
+
+    #media-preview-modal .carousel-control-prev-icon,
+    #media-preview-modal .carousel-control-next-icon {
+        background-color: rgba(0, 0, 0, 0.5);
+        border-radius: 50%;
+    }
+
+    #media-preview-modal #media-caption-input {
+        background-color: #333;
+        color: #fff;
+        border: none;
+    }
+
+    #media-preview-modal #media-caption-input::placeholder {
+        color: #bbb;
+    }
+
+    #media-preview-modal .modal-footer {
+        border-top: none;
+    }
+
+    #media-preview-modal .remove-media-item {
+        z-index: 10;
+    }
+
+    #media-thumbnails-container {
+        display: flex;
+        justify-content: center;
+        margin-top: 10px;
+    }
+
+    #media-thumbnails-container .img-thumbnail {
+        opacity: 0.5;
+        transition: opacity 0.2s ease;
+    }
+
+    #media-thumbnails-container .img-thumbnail.active {
+        opacity: 1;
+    }
+
+    @media (min-width: 768px) {
+        #media-viewer-modal .modal-dialog {
+            max-width: 90vw;
+            margin: 1.75rem auto;
+        }
+
+        #media-viewer-modal .modal-content {
+            display: flex;
+            flex-direction: column;
+            max-height: 90vh;
+        }
+
+        #media-viewer-modal .modal-body {
+            flex: 1 1 auto;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #media-viewer-content,
+        #media-viewer-content img,
+        #media-viewer-content video {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+    }
+
+    .original-message-content {
+        background-color: #e9ecef;
+        color: #000;
+    }
+
+    [data-bs-theme="dark"] .original-message-content {
+        background-color: #343a40 !important;
+        color: #fff !important;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<script type="text/javascript">
+    const currentUserProfilePicture = "{{ url_for('static', filename='profile_pics/' + user.profile_picture) if user and user.profile_picture else url_for('static', filename='profile_pics/placeholder-person.jpg') }}";
+</script>
+
+<div class="container mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h2 class="card-title">{{ room.name }}</h2>
+        </div>
+        <div class="card-body" id="messages" style="height: 400px; overflow-y: scroll;">
+            {% set last_seen_id = last_seen_message_id|int %}
+            {% set ns = namespace(unread_found=false) %}
+            <div class="text-center my-2">
+                    {% if pagination.has_prev %}
+                        <a href="{{ url_for('room', room_id=room.id, page=pagination.prev_num) }}" class="btn btn-secondary">Load More</a>
+                    {% endif %}
+                </div>
+            {% for date, messages in messages_by_date.items() %}
+                <div class="text-center my-2">
+                    <span class="badge bg-secondary">{{ date }}</span>
+                </div>
+                {% for message in messages %}
+                    {% if last_seen_id and message.id > last_seen_id and not ns.unread_found and message.user.username != session.username %}
+                        {% set ns.unread_found = true %}
+                        <div class="text-center my-2" id="unread-messages-badge">
+                            <span class="badge bg-primary">Unread Messages</span>
+                        </div>
+                    {% endif %}
+                    <div class="d-flex flex-row {% if message.user.username == session.username %}justify-content-end{% else %}justify-content-start{% endif %} mb-2 {% if last_seen_id and message.id > last_seen_id %}unread-message{% endif %}" data-message-id="{{ message.id }}" data-message-user="{{ message.user.username }}" {% if message.message_type == 'text' or message.message_type == 'media' %}oncontextmenu="return showContextMenu(event, '{{ message.id }}', '{{ message.user.username }}', {{ message.edit_count }}, '{{ message.message_type }}')"{% endif %}>
+                        {% if message.user.username != session.username %}
+                            <div class="position-relative me-2">
+                        <img src="{{ url_for('static', filename='profile_pics/' + message.user.profile_picture) }}" alt="{{ message.user.username }}'s profile picture" class="rounded-circle" style="width: 45px; height: 45px;" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="top" data-last-seen="{{ message.user.last_seen.isoformat() if message.user.last_seen else '' }}" data-user-status="{{ message.user.status }}" tabindex="0">
+                        <span class="status-indicator {{ message.user.status }}" data-user="{{ message.user.username }}"></span>
+                        <div class="last-seen-text" style="font-size: 0.8em; color: #6c757d;"></div>
+
+                    </div>
+                {% endif %}
+                <div class="message-bubble-container {% if message.user.username == session.username %}d-flex flex-column align-items-end{% endif %}">
+                    <div class="message-bubble" onclick="toggleTimestamp(this)">
+                        {% if message.parent %}
+                            <div class="reply-to p-2 ms-3 mb-1 rounded-3" onclick="scrollToMessage('{{ message.parent.id }}')">
+                                <strong>{{ message.parent.user.username }}</strong>
+                                {% if message.parent.message_type == 'text' %}
+                                    <p class="mb-0">{{ message.parent.content }}</p>
+                                {% elif message.parent.message_type == 'media' and message.parent.media_files %}
+                                    <img src="{{ url_for('uploaded_file', filename=message.parent.media_files[0].filename) }}" style="height: 50px; width: auto; border-radius: 5px;">
+                                {% else %}
+                                    <p class="mb-0">Media</p>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        {% if message.edit_count > 0 %}
+                            <p class="small ms-3 text-muted edited-indicator" style="font-size: 0.8em; margin-bottom: 0;">edited</p>
+                        {% endif %}
+                        {% if message.message_type == 'text' %}
+                            <p class="small p-2 ms-3 mb-1 rounded-3 message-content {% if message.user.username == session.username %}bg-primary text-white{% else %}" style="background-color: #f5f6f7;"{% endif %}">
+                                {{ message.content }}
+                            </p>
+                        {% elif message.message_type == 'media' %}
+                            <div class="{% if message.user.username != session.username %}ms-3{% endif %} mb-1">
+                                <div class="d-flex flex-wrap" style="gap: 5px;">
+                                     {% for media in message.media_files %}
+                                         {% if media.file_type.startswith('image/') %}
+                                             <img src="{{ url_for('uploaded_file', filename=media.filename) }}" class="img-fluid rounded" style="max-height: 100px; max-width: 100px; cursor: pointer;" onclick="openMediaViewer('{{ url_for('uploaded_file', filename=media.filename) }}', 'image', '{{ message.id }}')">
+                                         {% elif media.file_type.startswith('video/') %}
+                                             <div style="position: relative; display: inline-block;">
+                                                 <video src="{{ url_for('uploaded_file', filename=media.filename) }}#t=0.1" class="rounded" style="max-height: 100px; max-width: 100px; cursor: pointer;" onclick="openMediaViewer('{{ url_for('uploaded_file', filename=media.filename) }}', 'video', '{{ message.id }}')"></video>
+                                                 <i class="fas fa-play" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 2rem; cursor: pointer;" onclick="openMediaViewer('{{ url_for('uploaded_file', filename=media.filename) }}', 'video', '{{ message.id }}')"></i>
+                                             </div>
+                                         {% endif %}
+                                     {% endfor %}
+                                </div>
+                                {% if message.content %}
+                                    <div class="message-content p-2 rounded-3 {% if message.user.username == session.username %}bg-primary text-white{% else %}bg-light{% endif %}" onclick="toggleTimestamp(this)">{{ message.content }}</div>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                        {% if message.original_content %}
+                            <p class="small p-2 ms-3 mb-1 rounded-3 original-message-content" style="display: none;">{{ message.original_content }}</p>
+                        {% endif %}
+                        <p class="small ms-3 mb-3 rounded-3 text-muted timestamp" style="display: none;">{{ (message.timestamp|to_ist).strftime('%H:%M') }}</p>
+                    </div>
+                    {% if message.user.username == session.username and message.id == last_message_id %}
+                            <div class="seen-indicator text-muted small mt-1" data-message-id="{{ message.id }}">
+                                {% if last_seen_times.get(message.id) %}
+                                    Seen at {{ (last_seen_times.get(message.id)|to_ist).strftime('%H:%M') }}
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                </div>
+                {% if message.user.username == session.username %}
+                    <div class="position-relative ms-2">
+                        <img src="{{ url_for('static', filename='profile_pics/' + message.user.profile_picture) }}" alt="{{ message.user.username }}'s profile picture" class="rounded-circle" style="width: 45px; height: 45px;">
+                    </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        {% endfor %}
+        </div>
+        <div class="card-footer">
+            <div id="typing-indicator" style="display: none;">
+                <small><i>Someone is typing...</i></small>
+            </div>
+            <div id="reply-indicator" class="alert alert-secondary alert-dismissible fade show" role="alert" style="display: none;">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <strong>Replying to <span id="reply-user"></span></strong>
+                        <p id="reply-content" class="mb-0"></p>
+                    </div>
+                    <button type="button" class="btn-close" onclick="cancelReply()"></button>
+                </div>
+            </div>
+            <form id="message-form">
+                <div class="input-group">
+                    <div class="input-group-prepend">
+                        <button type="button" class="btn btn-outline-secondary" id="media-button" title="Attach Media">
+                             <i class="fas fa-camera"></i>
+                        </button>
+                    </div>
+                    <textarea id="message-input" class="form-control" placeholder="Type your message..." rows="1"></textarea>
+                    <div class="input-group-append">
+                        <button type="submit" class="btn btn-primary">Send</button>
+                    </div>
+                </div>
+            </form>
+            <input type="file" id="media-input" accept="image/*,video/*" multiple style="display: none;">
+        </div>
+    </div>
+</div>
+
+
+
+<!-- Media Preview Modal -->
+<div id="media-preview-modal" class="modal" style="display: none;">
+    <div class="modal-dialog modal-fullscreen">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header border-0">
+                <h5 class="modal-title text-white">Preview Media</h5>
+                <button type="button" class="btn-close btn-close-white" id="close-media-preview-btn"></button>
+            </div>
+            <div class="modal-body d-flex flex-column align-items-center justify-content-center">
+                <div id="media-carousel" class="carousel slide w-75" data-bs-interval="false">
+                    <div class="carousel-inner" id="media-carousel-inner">
+                        <!-- Media items will be injected here -->
+                    </div>
+                </div>
+                <div id="media-thumbnails-container" class="w-75 mt-2 d-flex justify-content-center flex-wrap"></div>
+                <div class="w-75 mt-3">
+                    <input type="text" id="media-caption-input" class="form-control bg-secondary text-white border-0" placeholder="Add a caption...">
+                </div>
+                <div id="upload-progress" class="mt-3 w-75" style="display: none;">
+                    <div class="progress">
+                        <div id="progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div id="progress-text" class="text-center mt-2 text-white">Uploading...</div>
+                </div>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-success" id="send-media-button-modal">Send <i class="fas fa-paper-plane"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="context-menu" class="card" style="display: none; position: absolute; z-index: 1000;">
+    <ul class="list-group list-group-flush">
+        <li class="list-group-item list-group-item-action" onclick="copyMessage()">Copy</li>
+        <li class="list-group-item list-group-item-action" onclick="editMessage()">Edit</li>
+        <li class="list-group-item list-group-item-action" onclick="replyToMessage()">Reply</li>
+        <li class="list-group-item list-group-item-action" onclick="unsendMessage()">Unsend</li>
+    </ul>
+</div>
+
+<!-- Media Viewer Modal -->
+<div id="media-viewer-modal" class="modal" style="display: none;">
+    <div class="modal-dialog modal-fullscreen-md-down">
+        <div class="modal-content bg-dark text-white">
+            <div class="modal-header border-0">
+                <button type="button" class="btn btn-primary" id="download-media-button">Download</button>
+                <button type="button" class="btn-close btn-close-white" onclick="closeMediaViewer()"></button>
+            </div>
+            <div class="modal-body d-flex flex-column align-items-center justify-content-center">
+                <div id="media-viewer-content"></div>
+            </div>
+            <div class="modal-footer border-0">
+                <div class="input-group">
+                    <input type="text" id="media-reply-input" class="form-control bg-secondary text-white border-0" placeholder="Reply to media...">
+                    <button type="button" class="btn btn-success" id="send-media-reply-button">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+<script type="text/javascript">
+    let room_id = document.body.getAttribute('data-room-id');
+    let currentMessageId = null;
+    let currentMediaMessageId = null;
+    var socket = null;
+    let messageObserver;
+
+    function showContextMenu(event, messageId, username, editCount, messageType) {
+        event.preventDefault();
+        currentMessageId = messageId;
+        const contextMenu = document.getElementById('context-menu');
+        const editMenuItem = contextMenu.querySelector('li[onclick="editMessage()"]');
+        const unsendMenuItem = contextMenu.querySelector('li[onclick="unsendMessage()"]');
+        const messageElement = document.querySelector(`[data-message-id="${currentMessageId}"]`);
+        const messageContent = messageElement.querySelector('.message-content');
+
+        if (username === '{{ session.username }}') {
+            unsendMenuItem.style.display = 'block';
+            if (messageType === 'text') {
+                if (editCount >= 3) {
+                    editMenuItem.style.display = 'none';
+                } else {
+                    editMenuItem.style.display = 'block';
+                }
+            } else if (messageType === 'media') {
+                if (messageContent && editCount < 3) {
+                    editMenuItem.style.display = 'block';
+                } else {
+                    editMenuItem.style.display = 'none';
+                }
+            } else {
+                editMenuItem.style.display = 'none';
+            }
+        } else {
+            editMenuItem.style.display = 'none';
+            unsendMenuItem.style.display = 'none';
+        }
+
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = `${event.pageX}px`;
+        contextMenu.style.top = `${event.pageY}px`;
+        return false; // Prevent default context menu
+    }
+
+    window.onclick = function(event) {
+        const contextMenu = document.getElementById('context-menu');
+        if (event.target !== contextMenu && !contextMenu.contains(event.target)) {
+            contextMenu.style.display = 'none';
+        }
+    }
+
+    function editMessage() {
+        const messageElement = document.querySelector(`[data-message-id="${currentMessageId}"] .message-content`);
+        const currentContent = messageElement.childNodes[0].nodeValue.trim();
+        const newContent = prompt("Edit your message:", currentContent);
+        if (newContent && newContent !== currentContent) {
+            socket.emit('edit_message', { 'message_id': currentMessageId, 'new_content': newContent });
+        }
+        document.getElementById('context-menu').style.display = 'none';
+    }
+
+    function openMediaViewer(fileUrl, mediaType, messageId) {
+        currentMediaMessageId = messageId;
+        const mediaViewerModal = document.getElementById('media-viewer-modal');
+        const mediaViewerContent = document.getElementById('media-viewer-content');
+        const downloadButton = document.getElementById('download-media-button');
+
+        if (mediaType === 'image') {
+            mediaViewerContent.innerHTML = `<img src="${fileUrl}" class="img-fluid rounded">`;
+        } else if (mediaType === 'video') {
+            mediaViewerContent.innerHTML = `<video src="${fileUrl}" controls class="rounded" style="max-width: 100%;"></video>`;
+        }
+
+        downloadButton.onclick = () => {
+            const a = document.createElement('a');
+            a.href = fileUrl;
+            a.download = fileUrl.split('/').pop();
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        };
+
+        mediaViewerModal.style.display = 'block';
+    }
+
+    function closeMediaViewer() {
+        const mediaViewerModal = document.getElementById('media-viewer-modal');
+        mediaViewerModal.style.display = 'none';
+    }
+
+    document.getElementById('send-media-reply-button').addEventListener('click', function() {
+        const replyInput = document.getElementById('media-reply-input');
+        const message = replyInput.value.trim();
+        if (message && currentMediaMessageId) {
+            currentParentId = currentMediaMessageId;
+            let data = {room_id: room_id, message: message, parent_id: currentParentId};
+            socket.emit('send_message', data);
+            replyInput.value = '';
+            closeMediaViewer();
+        }
+    });
+
+    function copyMessage() {
+        const messageElement = document.querySelector(`[data-message-id="${currentMessageId}"] .message-content`);
+        const messageContent = messageElement.childNodes[0].nodeValue.trim();
+        navigator.clipboard.writeText(messageContent).then(() => {
+            // Optional: Show a success message
+        }).catch(err => {
+            console.error('Failed to copy text: ', err);
+        });
+        document.getElementById('context-menu').style.display = 'none';
+    }
+
+    let currentParentId = null;
+
+    function replyToMessage() {
+        currentParentId = currentMessageId;
+        const messageElement = document.querySelector(`[data-message-id="${currentMessageId}"]`);
+        const messageType = messageElement.querySelector('.message-content') ? 'text' : 'media';
+        let messageContent;
+
+        if (messageType === 'media') {
+            messageContent = 'Media';
+        } else {
+            messageContent = messageElement.querySelector('.message-content').textContent.trim();
+        }
+        
+        const replyIndicator = document.getElementById('reply-indicator');
+        const replyContent = document.getElementById('reply-content');
+        const replyUser = document.getElementById('reply-user');
+        
+        replyUser.textContent = messageElement.dataset.messageUser;
+        replyContent.textContent = messageContent;
+        replyIndicator.style.display = 'block';
+
+        document.getElementById('context-menu').style.display = 'none';
+    }
+
+    function cancelReply() {
+        currentParentId = null;
+        document.getElementById('reply-indicator').style.display = 'none';
+    }
+
+    function unsendMessage() {
+        if (confirm("Are you sure you want to unsend this message?")) {
+            socket.emit('unsend_message', { 'message_id': currentMessageId });
+        }
+        document.getElementById('context-menu').style.display = 'none';
+    }
+
+    function scrollToMessage(messageId) {
+        console.log('scrollToMessage called with messageId:', messageId);
+        const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+        console.log('Found messageElement:', messageElement);
+        if (messageElement) {
+            messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            messageElement.classList.add('highlight');
+            setTimeout(() => {
+                messageElement.classList.remove('highlight');
+            }, 2000); // Highlight for 2 seconds
+        }
+    }
+
+    function createMessageElement(data) {
+        const messageId = data.message_id;
+        const isCurrentUser = data.user === '{{ session.username }}';
+
+        const messageElement = document.createElement('div');
+        messageElement.dataset.messageId = messageId;
+        messageElement.dataset.messageUser = data.user;
+        messageElement.className = `d-flex justify-content-${isCurrentUser ? 'end' : 'start'} mb-4`;
+
+        let profilePicHtml = '';
+        if (!isCurrentUser) {
+            profilePicHtml = `
+                <div class="position-relative me-2">
+                    <img src="/static/profile_pics/${data.profile_picture}" alt="${data.user}'s profile picture" class="rounded-circle" style="width: 45px; height: 45px;" data-bs-container="body" data-bs-toggle="popover" data-bs-placement="top" data-bs-content="" data-user-status="online" tabindex="0">
+                    <span class="status-indicator online" data-user="${data.user}"></span>
+                    <div class="last-seen-text" style="font-size: 0.8em; color: #6c757d;"></div>
+                </div>
+            `;
+        }
+
+        let replyHtml = '';
+        if (data.parent) {
+            replyHtml = `
+                <div class="reply-to p-2 ms-3 mb-1 rounded-3" onclick="scrollToMessage('${data.parent.message_id}')">
+                    <strong>${data.parent.username}</strong>
+                    <p class="mb-0">${data.parent.content}</p>
+                </div>
+            `;
+        }
+
+        let editedIndicatorHtml = '';
+        if (data.edit_count > 0) {
+            editedIndicatorHtml = `<p class="small ms-3 text-muted edited-indicator" style="font-size: 0.8em; margin-bottom: 0;">edited</p>`;
+        }
+
+        let messageContentHtml = '';
+        if (data.message_type === 'text') {
+            messageContentHtml = `<p class="small p-2 ms-3 mb-1 rounded-3 message-content ${isCurrentUser ? 'bg-primary text-white' : ''}" style="${!isCurrentUser ? 'background-color: #f5f6f7;' : ''}">${linkify(data.message)}</p>`;
+        } else if (data.message_type === 'media') {
+            let mediaFilesHtml = '';
+            if (data.media_files) {
+                mediaFilesHtml = data.media_files.map(media => {
+                    const fileUrl = `/uploads/${media.file_path}`;
+                    if (media.contentType.startsWith('image/')) {
+                        return `<img src="${fileUrl}" class="img-fluid rounded" style="max-height: 100px; max-width: 100px; cursor: pointer;" onclick="openMediaViewer('${fileUrl}', 'image', '${data.message_id}')">`;
+                    } else if (media.contentType.startsWith('video/')) {
+                        return `<div style="position: relative; display: inline-block;">
+                                    <video src="${fileUrl}#t=0.1" class="rounded" style="max-height: 100px; max-width: 100px; cursor: pointer;" onclick="openMediaViewer('${fileUrl}', 'video', '${data.message_id}')"></video>
+                                    <i class="fas fa-play" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: white; font-size: 24px; cursor: pointer;" onclick="openMediaViewer('${fileUrl}', 'video', '${data.message_id}')"></i>
+                                </div>`;
+                    }
+                    return '';
+                }).join('');
+            }
+
+            let captionHtml = '';
+            if (data.message) {
+                captionHtml = `<p class="small p-2 rounded-3 message-content ${isCurrentUser ? 'bg-primary text-white' : ''}" style="${!isCurrentUser ? 'background-color: #f5f6f7;' : ''}">${linkify(data.message)}</p>`;
+            }
+
+            messageContentHtml = `
+                <div class="mb-1">
+                    <div class="d-flex flex-wrap" style="gap: 5px;">
+                        ${mediaFilesHtml}
+                    </div>
+                    ${captionHtml}
+                </div>
+            `;
+        }
+
+        const messageBubbleHtml = `
+            <div class="message-bubble-container ${isCurrentUser ? 'd-flex flex-column align-items-end' : ''}">
+                <div class="message-bubble" onclick="toggleTimestamp(this)">
+                    ${replyHtml}
+                    ${editedIndicatorHtml}
+                    ${messageContentHtml}
+                    <p class="small ms-3 mb-3 rounded-3 text-muted timestamp" style="display: none;">${new Date(data.timestamp).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+                ${isCurrentUser ? `<div class="seen-indicator text-muted small mt-1" data-message-id="${messageId}"></div>` : ''}
+            </div>
+        `;
+
+        let sentProfilePicHtml = '';
+        if (isCurrentUser) {
+            sentProfilePicHtml = `
+                <div class="position-relative ms-2">
+                    <img src="/static/profile_pics/${data.profile_picture}" alt="${data.user}'s profile picture" class="rounded-circle" style="width: 45px; height: 45px;">
+                </div>
+            `;
+        }
+
+        messageElement.innerHTML = profilePicHtml + messageBubbleHtml + sentProfilePicHtml;
+        return messageElement;
+    }
+
+    function linkify(text) {
+        const urlRegex = /\b((?:https?):\/\/)?(www\.)?([-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b)([-a-zA-Z0-9@:%_\+.~#?&//=]*)/gi;
+        return text.replace(urlRegex, function(match, protocol, www, domain, path) {
+            let url = match;
+            let fullUrl = (protocol ? protocol : 'http://') + (www ? www : '') + domain + (path ? path : '');
+            return `<a href="${fullUrl}" target="_blank" class="text-reset text-decoration-underline">${url}</a>`;
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', (event) => {
+        document.querySelectorAll('.message-content').forEach(el => {
+            el.innerHTML = linkify(el.innerHTML.trim());
+        });
+    });
+
+    function appendMessage(data) {
+        if (!data.user) {
+            console.log("Received system message:", data.message);
+            return;
+        }
+
+        const messagesContainer = document.getElementById('messages');
+        const messageId = data.message_id;
+
+        if (document.querySelector(`[data-message-id="${messageId}"]`)) {
+            return;
+        }
+
+        const messageElement = createMessageElement(data);
+        messagesContainer.appendChild(messageElement);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        if (messageObserver) {
+            messageObserver.observe(messageElement);
+        }
+
+        if (data.user === '{{ session.username }}') {
+            last_message_id = messageId;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', (event) => {
+        messageObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const messageId = entry.target.dataset.messageId;
+                    socket.emit('message_seen', { message_id: messageId, room_id: room_id });
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 1.0 });
+        const unreadBadge = document.getElementById('unread-messages-badge');
+        if (unreadBadge) {
+            setTimeout(() => {
+                unreadBadge.style.display = 'none';
+            }, 3000);
+        }
+
+        let isSocketConnected = false;
+        socket = io('http://' + document.domain + ':' + location.port);
+        var room_id = "{{ room.id }}";
+
+        socket.on('connect', function() {
+            isSocketConnected = true;
+            console.log('FRONTEND: Joining room with ID:', room_id);
+            socket.emit('join', {room_id: room_id});
+            socket.emit('update_status', {status: 'online'});
+        });
+
+        socket.on('disconnect', function() {
+            isSocketConnected = false;
+            console.log('Socket disconnected.');
+        });
+
+        let last_message_id = {{ last_message_id|tojson }};
+
+        socket.on('new_message', function(data) {
+            if (data.temp_id && document.getElementById(data.temp_id)) {
+                const tempMessage = document.getElementById(data.temp_id);
+                const newMessage = createMessageElement(data);
+                tempMessage.parentNode.replaceChild(newMessage, tempMessage);
+                observer.observe(newMessage);
+                if (data.user === '{{ session.username }}') {
+                    last_message_id = data.message_id;
+                }
+            } else {
+                appendMessage(data);
+            }
+            closeMediaPreview();
+        });
+
+
+
+        // Scroll to the bottom of the messages container on page load
+        const messagesContainer = document.getElementById('messages');
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+        let typingTimer;
+        const typingIndicator = document.getElementById('typing-indicator');
+
+        document.getElementById('message-input').addEventListener('input', function() {
+            clearTimeout(typingTimer);
+            socket.emit('typing', {room_id: room_id});
+            typingTimer = setTimeout(function() {
+                socket.emit('stop_typing', {room_id: room_id});
+            }, 1000); // 1 second
+        });
+
+        socket.on('user_typing', function(data) {
+            if (data.user !== '{{ session.username }}') {
+                typingIndicator.style.display = 'block';
+                typingIndicator.innerHTML = `<small><i>${data.user} is typing...</i></small>`;
+            }
+        });
+
+        socket.on('user_stop_typing', function(data) {
+            if (data.user !== '{{ session.username }}') {
+                typingIndicator.style.display = 'none';
+            }
+        });
+
+        document.getElementById('message-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            let msg_input = document.getElementById('message-input');
+            let message = msg_input.value.trim();
+            if (message) {
+                let data = {room_id: room_id, message: message};
+                if (currentParentId) {
+                    data.parent_id = currentParentId;
+                }
+                socket.emit('send_message', data);
+                msg_input.value = '';
+                cancelReply();
+            }
+        });
+
+        // Media handling setup
+        document.getElementById('media-button').addEventListener('click', function() {
+            console.log('Attach button clicked');
+            document.getElementById('media-input').click();
+        });
+
+        document.getElementById('media-input').addEventListener('change', function(e) {
+            // Validate files before processing
+            const files = Array.from(e.target.files);
+            // Limit the number of files to 10
+            if (files.length > 10) {
+                alert('You can only send a maximum of 10 files at once.');
+                e.target.value = '';
+                return;
+            }
+            let totalSize = 0;
+            let hasError = false;
+            
+            files.forEach((file, index) => {
+                // Check file size (limit to 10MB per file)
+                if (file.size > 50 * 1024 * 1024) {
+                    alert(`File ${file.name} is too large. Maximum size is 50MB.`);
+                    hasError = true;
+                    return;
+                }
+                
+                // Check file type
+                if (!file.type.startsWith('image/') && !file.type.startsWith('video/')) {
+                    alert(`File ${file.name} is not a supported media type.`);
+                    hasError = true;
+                    return;
+                }
+                
+                totalSize += file.size;
+            });
+            
+            // Check total size limit (50MB)
+            if (!hasError && totalSize > 50 * 1024 * 1024) {
+                alert('Total size of all files exceeds 50MB limit.');
+                hasError = true;
+            }
+            
+            if (hasError) {
+                e.target.value = '';
+                return;
+            }
+            
+            selectedMediaFiles = files;
+            if (selectedMediaFiles.length > 0) {
+                showMediaPreview();
+            }
+        });
+
+        document.getElementById('send-media-button-modal').addEventListener('click', function() {
+            console.log('Send media button clicked');
+            sendMediaMessage();
+        });
+
+        // window.addEventListener('beforeunload', function() {
+        //     socket.emit('leave', {room_id: room_id});
+        // });
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const messageId = entry.target.dataset.messageId;
+                    const messageUser = entry.target.dataset.messageUser;
+                    if (messageUser !== '{{ session.username }}') {
+                        socket.emit('message_seen', { 'message_id': messageId });
+                    }
+                }
+            });
+        }, { threshold: 1.0 });
+
+        document.querySelectorAll('[data-message-id]').forEach(msg => {
+            observer.observe(msg);
+        });
+
+        socket.on('message_edited', function(data) {
+            const messageElement = document.querySelector(`[data-message-id="${data.message_id}"]`);
+            if (messageElement) {
+                const messageBubble = messageElement.querySelector('.message-bubble');
+                const messageContent = messageBubble.querySelector('.message-content');
+                messageContent.textContent = data.new_content;
+
+                let editedIndicator = messageBubble.querySelector('.edited-indicator');
+                if (!editedIndicator) {
+                    editedIndicator = document.createElement('p');
+                    editedIndicator.className = 'small ms-3 text-muted edited-indicator';
+                    editedIndicator.style.fontSize = '0.8em';
+                    editedIndicator.style.marginBottom = '0';
+                    editedIndicator.textContent = 'edited';
+                    messageBubble.insertBefore(editedIndicator, messageContent);
+                }
+
+                let originalContentElement = messageBubble.querySelector('.original-message-content');
+                if (!originalContentElement) {
+                    originalContentElement = document.createElement('p');
+                    originalContentElement.className = 'small p-2 ms-3 mb-1 rounded-3 original-message-content';
+                    originalContentElement.style.backgroundColor = '#e9ecef';
+                    originalContentElement.style.display = 'none';
+                    messageBubble.insertBefore(originalContentElement, messageContent.nextSibling);
+                }
+                originalContentElement.textContent = data.original_content;
+
+                messageElement.setAttribute('oncontextmenu', `return showContextMenu(event, '${data.message_id}', '{{ session.username }}', ${data.edit_count})`);
+            }
+        });
+
+        socket.on('message_seen_update', function(data) {
+            if (data.message_id === last_message_id) {
+                const messageElement = document.querySelector(`.seen-indicator[data-message-id="${data.message_id}"]`);
+                if (messageElement) {
+                    const seenAt = new Date(data.seen_at);
+                    const options = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' };
+                    messageElement.textContent = `Seen at ${seenAt.toLocaleString('en-IN', options)}`;
+                }
+            }
+        });
+
+        socket.on('message_unsent', function(data) {
+            const messageElement = document.querySelector(`[data-message-id="${data.message_id}"]`);
+            if (messageElement) {
+                messageElement.remove();
+            }
+        });
+
+
+
+        // Media handling functions
+        let selectedMediaFiles = [];
+
+
+
+        function showMediaPreview() {
+            const mediaCarouselInner = document.getElementById('media-carousel-inner');
+            mediaCarouselInner.innerHTML = '';
+            document.getElementById('media-caption-input').value = '';
+
+            selectedMediaFiles.forEach((file, index) => {
+                const fileReader = new FileReader();
+                fileReader.onload = function(e) {
+                    const carouselItem = document.createElement('div');
+                    carouselItem.className = `carousel-item ${index === 0 ? 'active' : ''}`;
+                    carouselItem.setAttribute('data-file-index', index);
+
+                    let mediaHtml = '';
+                    if (file.type.startsWith('image/')) {
+                        mediaHtml = `<img src="${e.target.result}" class="d-block w-100 img-fluid rounded">`;
+                    } else if (file.type.startsWith('video/')) {
+                        mediaHtml = `<video src="${e.target.result}" controls class="d-block w-100 rounded"></video>`;
+                    }
+
+                    carouselItem.innerHTML = `
+                        <div class="d-flex justify-content-center align-items-center h-100">
+                            ${mediaHtml}
+                        </div>
+                        <button type="button" class="btn btn-danger btn-sm remove-media-item" data-file-index="${index}" style="position: absolute; top: 10px; right: 10px;">
+                            &times;
+                        </button>
+                    `;
+                    mediaCarouselInner.appendChild(carouselItem);
+                };
+                fileReader.readAsDataURL(file);
+            });
+
+            document.getElementById('media-preview-modal').style.display = 'block';
+            renderThumbnails();
+            updateRemoveButtonListeners();
+        }
+
+        function renderThumbnails() {
+            const mediaThumbnailsContainer = document.getElementById('media-thumbnails-container');
+            mediaThumbnailsContainer.innerHTML = '';
+            const activeCarouselItem = document.querySelector('#media-carousel-inner .carousel-item.active');
+            const activeIndex = activeCarouselItem ? parseInt(activeCarouselItem.dataset.fileIndex) : 0;
+
+            selectedMediaFiles.forEach((file, index) => {
+                const fileReader = new FileReader();
+                fileReader.onload = function(e) {
+                    const thumbnail = document.createElement('img');
+                    thumbnail.src = e.target.result;
+                    thumbnail.className = `img-thumbnail m-1 ${index === activeIndex ? 'active' : ''}`;
+                    thumbnail.style.cursor = 'pointer';
+                    thumbnail.style.height = '50px';
+                    thumbnail.setAttribute('data-file-index', index);
+                    thumbnail.addEventListener('click', () => {
+                        const carouselItems = document.querySelectorAll('#media-carousel-inner .carousel-item');
+                        carouselItems.forEach(item => item.classList.remove('active'));
+                        const targetCarouselItem = document.querySelector(`#media-carousel-inner .carousel-item[data-file-index='${index}']`);
+                        if (targetCarouselItem) {
+                            targetCarouselItem.classList.add('active');
+                        }
+                        renderThumbnails();
+                    });
+                    mediaThumbnailsContainer.appendChild(thumbnail);
+                };
+                fileReader.readAsDataURL(file);
+            });
+        }
+
+        function updateRemoveButtonListeners() {
+            document.querySelectorAll('.remove-media-item').forEach(button => {
+                button.addEventListener('click', function() {
+                    const fileIndex = parseInt(this.dataset.fileIndex);
+                    selectedMediaFiles.splice(fileIndex, 1);
+                    if (selectedMediaFiles.length === 0) {
+                        closeMediaPreview();
+                    } else {
+                        showMediaPreview();
+                    }
+                });
+            });
+        }
+
+        document.getElementById('close-media-preview-btn').addEventListener('click', closeMediaPreview);
+
+        function closeMediaPreview() {
+            document.getElementById('media-preview-modal').style.display = 'none';
+            document.getElementById('media-input').value = '';
+            document.getElementById('media-carousel-inner').innerHTML = '';
+            document.getElementById('media-caption-input').value = '';
+            selectedMediaFiles = [];
+        }
+
+        // Set up event listener for send media button (moved to main DOMContentLoaded)
+
+        function scrollToMessage(messageId) {
+            const messageElement = document.querySelector(`[data-message-id="${messageId}"]`);
+            if (messageElement) {
+                messageElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                messageElement.classList.add('highlight');
+                setTimeout(() => {
+                    messageElement.classList.remove('highlight');
+                }, 1000);
+            }
+        }
+
+        function sendMediaMessage() {
+            const mediaFilesToUpload = [...selectedMediaFiles];
+            const caption = document.getElementById('media-caption-input').value;
+            const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+            if (mediaFilesToUpload.length === 0) {
+                console.log("No media files to upload.");
+                closeMediaPreview();
+                return;
+            }
+
+            displayTemporaryMessage(tempId, mediaFilesToUpload, caption);
+            closeMediaPreview();
+
+            const uploadPromises = mediaFilesToUpload.map(file => {
+                return new Promise((resolve, reject) => {
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const xhr = new XMLHttpRequest();
+                    xhr.open('POST', '/upload_media', true);
+
+                    xhr.upload.onprogress = (event) => {
+                        if (event.lengthComputable) {
+                            const percentComplete = (event.loaded / event.total) * 100;
+                            updateUploadProgress(tempId, percentComplete);
+                        }
+                    };
+
+                    xhr.onload = () => {
+                        if (xhr.status === 200) {
+                            try {
+                                const response = JSON.parse(xhr.responseText);
+                                if (response.filename) {
+                                    console.log('File uploaded successfully:', response.filename);
+                                    resolve({
+                                        filename: response.filename,
+                                        original_filename: file.name,
+                                        file_type: file.type,
+                                        file_size: file.size
+                                    });
+                                } else {
+                                    console.error('Upload succeeded but no filename returned.');
+                                    reject('Upload succeeded but no filename returned.');
+                                }
+                            } catch (e) {
+                                console.error("Could not parse /upload_media response:", e);
+                                reject("Could not parse server response.");
+                            }
+                        } else {
+                            console.error('Upload failed for', file.name, 'with status:', xhr.status);
+                            reject(`Upload failed with status: ${xhr.status}`);
+                        }
+                    };
+
+                    xhr.onerror = () => {
+                        console.error('XHR error occurred during upload for', file.name);
+                        reject('XHR error');
+                    };
+
+                    xhr.send(formData);
+                });
+            });
+
+            Promise.all(uploadPromises)
+                .then(uploadedFilesData => {
+                    console.log("All files uploaded, sending message via socket.");
+                    const tempMessage = document.getElementById(tempId);
+                    if (tempMessage) {
+                        const progressContainer = tempMessage.querySelector('.progress-container');
+                        if (progressContainer) {
+                            progressContainer.remove();
+                        }
+                    }
+
+                    const messageData = {
+                        room_id: room_id,
+                        message: caption,
+                        temp_id: tempId,
+                        media_files: uploadedFilesData
+                    };
+
+                    if (currentParentId) {
+                        messageData.parent_id = currentParentId;
+                    }
+
+                    socket.emit('send_message', messageData);
+                    cancelReply();
+                })
+                .catch(error => {
+                    console.error('An error occurred during media upload:', error);
+                    alert('An error occurred during media upload. Please try again.');
+                    removeTemporaryMessage(tempId);
+                });
+        }
+
+        function displayTemporaryMessage(tempId, files, caption) {
+            const messages = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.id = tempId;
+            messageDiv.className = 'd-flex justify-content-end mb-4';
+
+            let mediaPreviews = '';
+            files.forEach(file => {
+                if (file.type.startsWith('image/')) {
+                    mediaPreviews += `<img src="${URL.createObjectURL(file)}" class="img-fluid rounded" style="max-height: 200px; margin-right: 5px;">`;
+                } else if (file.type.startsWith('video/')) {
+                    mediaPreviews += `<video src="${URL.createObjectURL(file)}" class="img-fluid rounded" style="max-height: 200px; margin-right: 5px;" controls></video>`;
+                }
+            });
+
+            messageDiv.innerHTML = `
+                <div class="message-bubble-container d-flex flex-column align-items-end">
+                    <div class="message-bubble">
+                        <div class="upload-overlay" style="position: relative;">
+                            <div class="d-flex">${mediaPreviews}</div>
+                            <div class="progress-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; flex-direction: column;">
+                                <div class="progress" style="width: 80%;">
+                                    <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                </div>
+                                <span class="text-white">Uploading...</span>
+                            </div>
+                        </div>
+                        ${caption ? `<p class="small p-2 ms-3 mb-1 rounded-3 bg-primary text-white">${caption}</p>` : ''}
+                    </div>
+                </div>
+                <div class="position-relative ms-2">
+                    <img src="${currentUserProfilePicture}" alt="profile picture" class="rounded-circle" style="width: 45px; height: 45px;">
+                </div>
+            `;
+            messages.appendChild(messageDiv);
+            messages.scrollTop = messages.scrollHeight;
+        }
+
+        function updateUploadProgress(tempId, percentComplete) {
+            const progressBar = document.querySelector(`#${tempId} .progress-bar`);
+            if (progressBar) {
+                progressBar.style.width = percentComplete + '%';
+                progressBar.setAttribute('aria-valuenow', percentComplete);
+            }
+            const progressText = document.querySelector(`#${tempId} .progress-container span`);
+            if(progressText) {
+                progressText.textContent = `Uploading... ${Math.round(percentComplete)}%`;
+            }
+        }
+
+        function removeTemporaryMessage(tempId) {
+            const tempMessage = document.getElementById(tempId);
+            if (tempMessage) {
+                tempMessage.remove();
+            }
+        }
+
+        // Close modal when clicking outside
+        window.addEventListener('click', function(event) {
+            const modal = document.getElementById('media-preview-modal');
+            if (event.target === modal) {
+                closeMediaPreview();
+            }
+        });
+
+        socket.on('status_update', function(data) {
+            const userImages = document.querySelectorAll(`img[data-user="${data.user}"]`);
+            userImages.forEach(img => {
+                const indicator = img.parentElement.querySelector('.status-indicator');
+                if (indicator) {
+                    indicator.classList.remove('online', 'offline');
+                    indicator.classList.add(data.status);
+                }
+
+                img.setAttribute('data-user-status', data.status);
+                if (data.status === 'offline') {
+                    img.setAttribute('data-last-seen', data.last_seen);
+                }
+                updateLastSeen();
+            });
+        });
+
+        function updateLastSeen() {
+            const images = document.querySelectorAll('img[data-last-seen]');
+            images.forEach(img => {
+                const lastSeenISO = img.getAttribute('data-last-seen');
+                if (lastSeenISO) {
+                    // Convert UTC time to IST timezone (add 5.5 hours)
+                    const lastSeenUTC = new Date(lastSeenISO);
+                    const lastSeenIST = new Date(lastSeenUTC.getTime() + (5.5 * 60 * 60 * 1000));
+                    
+                    // Use browser's local time (which is already in IST)
+                    const now = new Date();
+                    const seconds = Math.round((now - lastSeenIST) / 1000);
+                    let text = '';
+
+                    if (seconds < 60) {
+                        text = 'just now';
+                    } else if (seconds < 3600) {
+                        const minutes = Math.floor(seconds / 60);
+                        text = `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+                    } else if (seconds < 86400) {
+                        const hours = Math.floor(seconds / 3600);
+                        text = `${hours} hour${hours > 1 ? 's' : ''} ago`;
+                    } else {
+                        const days = Math.floor(seconds / 86400);
+                        text = `${days} day${days > 1 ? 's' : ''} ago`;
+                    }
+                    
+                    img.setAttribute('data-bs-content', `Last seen: ${text}`);
+                    initializePopoversForElement(img);
+                }
+            });
+        }
+
+        function initializePopoversForElement(element) {
+            const userStatus = element.getAttribute('data-user-status');
+            var popover = bootstrap.Popover.getInstance(element);
+            if (popover) {
+                popover.dispose();
+            }
+            if (userStatus === 'offline') {
+                new bootstrap.Popover(element, { 
+                    trigger: 'focus', 
+                    html: true 
+                });
+            }
+        }
+
+        function initializePopovers() {
+            var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'))
+            popoverTriggerList.forEach(function (popoverTriggerEl) {
+                initializePopoversForElement(popoverTriggerEl);
+            });
+        }
+
+        initializePopovers();
+        updateLastSeen(); // Initial call to set the last seen times
+
+
+
+
+
+
+
+        document.addEventListener('click', function (event) {
+            const openPopovers = document.querySelectorAll('.popover.show');
+            openPopovers.forEach(popover => {
+                const popoverInstance = bootstrap.Popover.getInstance(popover);
+                if (popoverInstance && !popoverInstance._element.contains(event.target)) {
+                    popoverInstance.hide();
+                }
+            });
+        });
+    });
+
+    function toggleTimestamp(element) {
+        const timestamp = element.querySelector('.timestamp');
+        const originalMessage = element.querySelector('.original-message-content');
+        if (timestamp.style.display === 'none') {
+            timestamp.style.display = 'block';
+            if (originalMessage) {
+                originalMessage.style.display = 'block';
+            }
+        } else {
+            timestamp.style.display = 'none';
+            if (originalMessage) {
+                originalMessage.style.display = 'none';
+            }
+        }
+    }
+
+    const messageInput = document.getElementById('message-input');
+    messageInput.addEventListener('input', function () {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    });
+
+    messageInput.addEventListener('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            document.getElementById('message-form').requestSubmit();
+        }
+    });
+</script>
+{% endblock %}

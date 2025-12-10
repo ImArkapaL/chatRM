@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Profile{% endblock %}
+
+{% block content %}
+<div class="container my-5">
+    <h1 class="text-center mb-5">Edit Profile</h1>
+
+    <div class="row">
+        <div class="col-lg-4 mb-4">
+            <div class="card text-center">
+                <div class="card-body">
+                    <form method="POST" action="{{ url_for('profile') }}" enctype="multipart/form-data" id="profile-pic-form">
+                        <img src="{{ url_for('static', filename='profile_pics/' + user.profile_picture) }}" alt="Profile Picture" class="rounded-circle img-thumbnail mb-3" style="width: 150px; height: 150px; cursor: pointer;" onclick="document.getElementById('profile_picture').click();">
+                        <input type="file" name="profile_picture" id="profile_picture" style="display: none;" onchange="document.getElementById('profile-pic-form').submit();" accept="image/*">
+                    </form>
+                    <h2 class="card-title h5">{{ user.username }}</h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="card-title h5">Account Information</h2>
+                    <form method="POST" action="{{ url_for('profile') }}">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" name="username" id="username" class="form-control" value="{{ user.username }}" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Username</button>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title h5">Change Password</h2>
+                    <form method="POST" action="{{ url_for('change_password') }}">
+                        <div class="mb-3">
+                            <label for="current_password" class="form-label">Current Password</label>
+                            <input type="password" name="current_password" id="current_password" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">New Password</label>
+                            <input type="password" name="new_password" id="new_password" class="form-control" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirm_new_password" class="form-label">Confirm New Password</label>
+                            <input type="password" name="confirm_new_password" id="confirm_new_password" class="form-control" required>
+                        </div>
+                        <button type="submit" class="btn btn-danger">Change Password</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

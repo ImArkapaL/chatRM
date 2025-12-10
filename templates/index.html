@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome to ChatRM{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-column justify-content-center align-items-center vh-100 text-center">
+    {% if session['username'] %}
+        <h1 class="display-4 mb-3">Welcome back, {{ session['username'] }}!</h1>
+        <p class="lead mb-4">Ready to jump back into the conversation?</p>
+        <div>
+            <a href="{{ url_for('home') }}" class="btn btn-primary btn-lg">Go to Home</a>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary btn-lg">Logout</a>
+        </div>
+    {% else %}
+        <h1 class="display-3 mb-3">Welcome to ChatRM</h1>
+        <p class="lead mb-4">A modern, simple, and responsive chat application.</p>
+        <p class="text-muted mb-5">Join the conversation today!</p>
+        <div>
+            <a href="{{ url_for('login') }}" class="btn btn-primary btn-lg">Login</a>
+            <a href="{{ url_for('register') }}" class="btn btn-secondary btn-lg">Register</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
