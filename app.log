@@ -99,3 +99,36 @@
 2025-12-10 11:04:32,041 INFO upload_media(223) Upload media request received
 2025-12-10 11:04:32,267 INFO upload_media(244) Saving file 20250428_063819.mp4 to e:\chatRM\static\uploads\20251210_053432_nhordtnw.mp4
 2025-12-10 11:04:32,348 INFO upload_media(246) File 20250428_063819.mp4 saved successfully
+2025-12-10 19:35:48,523 INFO upload_media(223) Upload media request received
+2025-12-10 19:35:48,532 INFO upload_media(244) Saving file Screenshot_2025-11-23_205547.png to e:\chatRM\static\uploads\20251210_140548_bs8hp51l.png
+2025-12-10 19:35:48,534 INFO upload_media(246) File Screenshot_2025-11-23_205547.png saved successfully
+2025-12-10 19:35:48,540 INFO upload_media(223) Upload media request received
+2025-12-10 19:35:48,546 INFO upload_media(244) Saving file Screenshot_2025-11-23_212232.png to e:\chatRM\static\uploads\20251210_140548_5lntenam.png
+2025-12-10 19:35:48,549 INFO upload_media(246) File Screenshot_2025-11-23_212232.png saved successfully
+2025-12-10 19:35:48,557 INFO upload_media(223) Upload media request received
+2025-12-10 19:35:48,561 INFO upload_media(244) Saving file Screenshot_2025-11-23_205605.png to e:\chatRM\static\uploads\20251210_140548_h04v4d6z.png
+2025-12-10 19:35:48,563 INFO upload_media(246) File Screenshot_2025-11-23_205605.png saved successfully
+2025-12-10 19:44:18,061 INFO upload_media(223) Upload media request received
+2025-12-10 19:44:18,078 INFO upload_media(223) Upload media request received
+2025-12-10 19:44:18,112 INFO upload_media(244) Saving file 20250428_063947.jpg to e:\chatRM\static\uploads\20251210_141418_g4tgshnl.jpg
+2025-12-10 19:44:18,118 INFO upload_media(246) File 20250428_063947.jpg saved successfully
+2025-12-10 19:44:18,125 INFO upload_media(244) Saving file 20250428_063945.jpg to e:\chatRM\static\uploads\20251210_141418_82ywaord.jpg
+2025-12-10 19:44:18,131 INFO upload_media(246) File 20250428_063945.jpg saved successfully
+2025-12-10 22:01:50,927 INFO upload_media(223) Upload media request received
+2025-12-10 22:01:50,947 INFO upload_media(223) Upload media request received
+2025-12-10 22:01:50,980 INFO upload_media(244) Saving file 20250428_063941.jpg to e:\chatRM\static\uploads\20251210_163150_q3p3rrfg.jpg
+2025-12-10 22:01:50,987 INFO upload_media(246) File 20250428_063941.jpg saved successfully
+2025-12-10 22:01:51,000 INFO upload_media(223) Upload media request received
+2025-12-10 22:01:51,018 INFO upload_media(244) Saving file 20250428_070542.jpg to e:\chatRM\static\uploads\20251210_163151_nxlmqwdn.jpg
+2025-12-10 22:01:51,028 INFO upload_media(246) File 20250428_070542.jpg saved successfully
+2025-12-10 22:01:51,046 INFO upload_media(223) Upload media request received
+2025-12-10 22:01:51,079 INFO upload_media(244) Saving file 20250428_063947.jpg to e:\chatRM\static\uploads\20251210_163151_zxaly6ey.jpg
+2025-12-10 22:01:51,086 INFO upload_media(246) File 20250428_063947.jpg saved successfully
+2025-12-10 22:01:51,105 INFO upload_media(223) Upload media request received
+2025-12-10 22:01:51,130 INFO upload_media(244) Saving file 20250428_063945.jpg to e:\chatRM\static\uploads\20251210_163151_ov57b9m8.jpg
+2025-12-10 22:01:51,149 INFO upload_media(246) File 20250428_063945.jpg saved successfully
+2025-12-10 22:01:51,159 INFO upload_media(223) Upload media request received
+2025-12-10 22:01:51,177 INFO upload_media(244) Saving file 20250428_064148.jpg to e:\chatRM\static\uploads\20251210_163151_oiha1sam.jpg
+2025-12-10 22:01:51,185 INFO upload_media(246) File 20250428_064148.jpg saved successfully
+2025-12-10 22:01:51,240 INFO upload_media(244) Saving file 20250428_065802.mp4 to e:\chatRM\static\uploads\20251210_163151_xwyqhnc5.mp4
+2025-12-10 22:01:51,297 INFO upload_media(246) File 20250428_065802.mp4 saved successfully

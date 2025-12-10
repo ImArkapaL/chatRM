@@ -251,18 +251,11 @@
                 <button type="button" class="btn-close btn-close-white" id="close-media-preview-btn"></button>
             </div>
             <div class="modal-body d-flex flex-column align-items-center justify-content-center">
-                <div id="media-carousel" class="carousel slide w-75" data-bs-interval="false">
-                    <div class="carousel-inner" id="media-carousel-inner">
+                <div id="media-preview-container" class="w-75">
+                    <div id="enlarged-media-container" class="mb-2 d-flex justify-content-center" style="display: none;"></div>
+                    <div id="media-preview-grid" class="d-flex flex-wrap justify-content-center gap-2" style="max-height: 70vh; overflow-y: auto;">
                         <!-- Media items will be injected here -->
                     </div>
-                    <button class="carousel-control-prev" type="button" data-bs-target="#media-carousel" data-bs-slide="prev">
-                        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
-                        <span class="visually-hidden">Previous</span>
-                    </button>
-                    <button class="carousel-control-next" type="button" data-bs-target="#media-carousel" data-bs-slide="next">
-                        <span class="carousel-control-next-icon" aria-hidden="true"></span>
-                        <span class="visually-hidden">Next</span>
-                    </button>
                 </div>
                 <div class="w-75 mt-3">
                     <input type="text" id="media-caption-input" class="form-control bg-secondary text-white border-0" placeholder="Add a caption...">
@@ -841,63 +834,142 @@
 
 
         function showMediaPreview() {
-            const mediaCarouselInner = document.getElementById('media-carousel-inner');
-            mediaCarouselInner.innerHTML = ''; // Clear previous previews
-            document.getElementById('media-caption-input').value = ''; // Clear previous caption
+            const previewGrid = document.getElementById('media-preview-grid');
+            const enlargedMediaContainer = document.getElementById('enlarged-media-container');
+            previewGrid.innerHTML = '';
 
             selectedMediaFiles.forEach((file, index) => {
-                const fileReader = new FileReader();
-                fileReader.onload = function(e) {
-                    const carouselItem = document.createElement('div');
-                    carouselItem.className = `carousel-item ${index === 0 ? 'active' : ''}`;
-                    carouselItem.setAttribute('data-file-index', index);
+                const item = document.createElement('div');
+                item.className = 'position-relative';
 
-                    let mediaHtml = '';
-                    if (file.type.startsWith('image/')) {
-                        mediaHtml = `<img src="${e.target.result}" class="d-block w-100 img-fluid rounded">`;
+                let mediaElement;
+                if (file.type.startsWith('image/')) {
+                    mediaElement = document.createElement('img');
+                    mediaElement.src = URL.createObjectURL(file);
+                    mediaElement.className = 'img-fluid rounded';
+                    mediaElement.style.height = '100px';
+                } else if (file.type.startsWith('video/')) {
+                    mediaElement = document.createElement('video');
+                    mediaElement.src = URL.createObjectURL(file);
+                    mediaElement.className = 'img-fluid rounded';
+                    mediaElement.style.height = '100px';
+                    mediaElement.controls = true;
+                }
+
+                mediaElement.addEventListener('click', () => {
+                    enlargedMediaContainer.innerHTML = ''; // Clear previous
+                    let enlargedElement;
+                     if (file.type.startsWith('image/')) {
+                        enlargedElement = document.createElement('img');
+                        enlargedElement.className = 'img-fluid rounded';
+                        enlargedElement.style.maxHeight = '400px';
                     } else if (file.type.startsWith('video/')) {
-                        mediaHtml = `<video src="${e.target.result}" controls class="d-block w-100 rounded"></video>`;
+                        enlargedElement = document.createElement('video');
+                        enlargedElement.className = 'img-fluid rounded';
+                        enlargedElement.style.maxHeight = '400px';
+                        enlargedElement.controls = true;
                     }
+                    enlargedElement.src = URL.createObjectURL(file);
+                    enlargedMediaContainer.appendChild(enlargedElement);
+                    enlargedMediaContainer.style.display = 'block';
+                });
 
-                    carouselItem.innerHTML = `
-                        <div class="d-flex justify-content-center align-items-center h-100">
-                            ${mediaHtml}
-                        </div>
-                        <button type="button" class="btn btn-danger btn-sm remove-media-item" data-file-index="${index}" style="position: absolute; top: 10px; right: 10px;">
-                            &times;
-                        </button>
-                    `;
-                    mediaCarouselInner.appendChild(carouselItem);
-                };
-                fileReader.readAsDataURL(file);
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn btn-danger btn-sm position-absolute top-0 end-0 remove-media-item';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.dataset.index = index;
+
+                item.appendChild(mediaElement);
+                item.appendChild(removeBtn);
+                previewGrid.appendChild(item);
             });
 
-            document.getElementById('media-preview-modal').style.display = 'block';
-
-            // Add event listener for removing media items
             document.querySelectorAll('.remove-media-item').forEach(button => {
                 button.addEventListener('click', function() {
-                    const fileIndex = parseInt(this.dataset.fileIndex);
-                    const carouselItem = this.closest('.carousel-item');
-                    const wasActive = carouselItem.classList.contains('active');
-                    carouselItem.remove();
-
-                    selectedMediaFiles.splice(fileIndex, 1);
-
-                    const remainingItems = document.querySelectorAll('#media-carousel-inner .carousel-item');
-                    if (remainingItems.length === 0) {
-                        closeMediaPreview();
-                    } else if (wasActive) {
-                        remainingItems[0].classList.add('active');
+                    const index = parseInt(this.dataset.index, 10);
+                    const mediaSrc = this.parentElement.querySelector('img, video').src;
+                    if (mediaSrc.startsWith('blob:')) {
+                        URL.revokeObjectURL(mediaSrc);
                     }
-
-                    // Re-index the remaining items
-                    remainingItems.forEach((item, newIndex) => {
-                        item.setAttribute('data-file-index', newIndex);
-                        item.querySelector('.remove-media-item').setAttribute('data-file-index', newIndex);
-                    });
+                    selectedMediaFiles.splice(index, 1);
+                    enlargedMediaContainer.style.display = 'none';
+                    enlargedMediaContainer.innerHTML = '';
+                    showMediaPreview(); // Re-render the preview
                 });
             });
+
+            if (selectedMediaFiles.length > 0) {
+                document.getElementById('media-preview-modal').style.display = 'block';
+            } else {
+                closeMediaPreview();
+            }
+        }
+
+        function showMediaPreview() {
+            const previewGrid = document.getElementById('media-preview-grid');
+            const enlargedMediaContainer = document.getElementById('enlarged-media-container');
+            previewGrid.innerHTML = '';
+
+            selectedMediaFiles.forEach((file, index) => {
+                const item = document.createElement('div');
+                item.className = 'position-relative';
+
+                let mediaElement;
+                if (file.type.startsWith('image/')) {
+                    mediaElement = document.createElement('img');
+                    mediaElement.src = URL.createObjectURL(file);
+                    mediaElement.className = 'img-fluid rounded';
+                    mediaElement.style.height = '100px';
+                } else if (file.type.startsWith('video/')) {
+                    mediaElement = document.createElement('video');
+                    mediaElement.src = URL.createObjectURL(file);
+                    mediaElement.className = 'img-fluid rounded';
+                    mediaElement.style.height = '100px';
+                }
+
+                mediaElement.addEventListener('click', () => {
+                    enlargedMediaContainer.innerHTML = ''; // Clear previous
+                    let enlargedElement;
+                     if (file.type.startsWith('image/')) {
+                        enlargedElement = document.createElement('img');
+                        enlargedElement.className = 'img-fluid rounded';
+                        enlargedElement.style.maxHeight = '400px';
+                    } else if (file.type.startsWith('video/')) {
+                        enlargedElement = document.createElement('video');
+                        enlargedElement.className = 'img-fluid rounded';
+                        enlargedElement.style.maxHeight = '400px';
+                        enlargedElement.controls = true;
+                    }
+                    enlargedElement.src = URL.createObjectURL(file);
+                    enlargedMediaContainer.appendChild(enlargedElement);
+                    enlargedMediaContainer.style.display = 'block';
+                });
+
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'btn btn-danger btn-sm position-absolute top-0 end-0 remove-media-item';
+                removeBtn.innerHTML = '&times;';
+                removeBtn.dataset.index = index;
+
+                item.appendChild(mediaElement);
+                item.appendChild(removeBtn);
+                previewGrid.appendChild(item);
+            });
+
+            document.querySelectorAll('.remove-media-item').forEach(button => {
+                button.addEventListener('click', function() {
+                    const index = parseInt(this.dataset.index, 10);
+                    selectedMediaFiles.splice(index, 1);
+                    enlargedMediaContainer.style.display = 'none';
+                    enlargedMediaContainer.innerHTML = '';
+                    showMediaPreview(); // Re-render the preview
+                });
+            });
+
+            if (selectedMediaFiles.length > 0) {
+                document.getElementById('media-preview-modal').style.display = 'block';
+            } else {
+                closeMediaPreview();
+            }
         }
 
         document.getElementById('close-media-preview-btn').addEventListener('click', closeMediaPreview);
@@ -905,8 +977,11 @@
         function closeMediaPreview() {
             document.getElementById('media-preview-modal').style.display = 'none';
             document.getElementById('media-input').value = '';
-            document.getElementById('media-carousel-inner').innerHTML = '';
+            document.getElementById('media-preview-grid').innerHTML = '';
             document.getElementById('media-caption-input').value = '';
+            const enlargedMediaContainer = document.getElementById('enlarged-media-container');
+            enlargedMediaContainer.style.display = 'none';
+            enlargedMediaContainer.innerHTML = '';
             selectedMediaFiles = [];
         }
 
