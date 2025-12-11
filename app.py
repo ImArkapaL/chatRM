@@ -13,6 +13,9 @@ import logging
 from logging.handlers import RotatingFileHandler
 
 from sqlalchemy.orm import joinedload
+import urllib.request
+import urllib.parse
+import json
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -41,7 +44,8 @@ if not os.path.exists(uploads_path):
     os.makedirs(uploads_path)
 
 # Media configuration
-ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'webm', 'mov'}
+# Allow common image, video and audio extensions for voice messages
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'mp4', 'webm', 'mov', 'wav', 'mp3', 'm4a', 'ogg', 'aac'}
 MAX_FILE_SIZE = 50 * 1024 * 1024 # 50MB per file
 MAX_TOTAL_SIZE = 50 * 1024 * 1024  # 50MB total per message
 db = SQLAlchemy(app)
@@ -71,6 +75,8 @@ def get_file_type(filename):
         return 'image'
     elif ext in {'mp4', 'webm', 'mov'}:
         return 'video'
+    elif ext in {'wav', 'mp3', 'm4a', 'ogg', 'aac'}:
+        return 'audio'
     return 'unknown'
 
 def generate_unique_filename(original_filename):
@@ -117,6 +123,7 @@ class Message(db.Model):
     parent_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=True)
     parent = db.relationship('Message', remote_side=[id], backref='replies')
     media_files = db.relationship('Media', backref='message', lazy=True, cascade="all, delete-orphan")
+    reactions = db.relationship('Reaction', backref='message', lazy=True, cascade="all, delete-orphan")
 
 class Media(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -136,6 +143,16 @@ class MessageSeen(db.Model):
     message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=False)
     seen_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     user = db.relationship('User')
+
+
+class Reaction(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    message_id = db.Column(db.Integer, db.ForeignKey('message.id'), nullable=False)
+    emoji = db.Column(db.String(10), nullable=False)
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    user = db.relationship('User')
+
 
 @app.before_request
 def before_request():
@@ -180,6 +197,17 @@ def room(room_id):
     messages_pagination = Message.query.options(joinedload(Message.media_files)).filter_by(room_id=room.id).order_by(Message.timestamp.desc()).paginate(page=page, per_page=per_page, error_out=False)
     messages_query = messages_pagination.items
     messages_query.reverse()
+
+    # Prepare reaction summaries for server-side rendering
+    for msg in messages_query:
+        counts = {}
+        user_reacted = []
+        for r in msg.reactions:
+            counts[r.emoji] = counts.get(r.emoji, 0) + 1
+            if g.user and r.user_id == g.user.id:
+                user_reacted.append(r.emoji)
+        # attach lightweight summary for template
+        msg.reaction_summary = {'counts': counts, 'user_reacted': user_reacted}
 
     messages_by_date = {}
     for message in messages_query:
@@ -375,13 +403,23 @@ def handle_send_message(data):
         if media_files:
             for i, file_data in enumerate(media_files):
                 print(f"BACKEND: Processing file {i+1}: {file_data}")
-                media = Media(
-                    filename=file_data['filename'],
-                    original_filename=file_data['original_filename'],
-                    file_type=file_data['file_type'],
-                    file_size=file_data.get('file_size', 0),
-                    message_id=message.id
-                )
+                if file_data.get('external_url'):
+                    # External media (e.g., Giphy URL) — store URL in filename field
+                    media = Media(
+                        filename=file_data['external_url'],
+                        original_filename=file_data.get('original_filename', ''),
+                        file_type=file_data.get('file_type', 'image'),
+                        file_size=0,
+                        message_id=message.id
+                    )
+                else:
+                    media = Media(
+                        filename=file_data['filename'],
+                        original_filename=file_data['original_filename'],
+                        file_type=file_data['file_type'],
+                        file_size=file_data.get('file_size', 0),
+                        message_id=message.id
+                    )
                 db.session.add(media)
 
         try:
@@ -400,7 +438,6 @@ def handle_send_message(data):
             'message_type': message_type,
             'message': message_content if message_content else ''
         }
-
         if message.media_files:
             emit_data['media_files'] = [
                 {
@@ -409,6 +446,9 @@ def handle_send_message(data):
                 }
                 for media in message.media_files
             ]
+
+        # Include current reactions summary (empty at creation)
+        emit_data['reactions'] = {'counts': {}, 'user_reacted': []}
 
         if parent_id:
             parent = Message.query.get(parent_id)
@@ -477,6 +517,37 @@ def on_stop_typing(data):
         if room_id:
             socketio.emit('user_stop_typing', {'user': session['username']}, room=room_id)
 
+@socketio.on('toggle_reaction')
+def handle_toggle_reaction(data):
+    if 'username' not in session:
+        return
+    user = User.query.filter_by(username=session['username']).first()
+    message = Message.query.get(data.get('message_id'))
+    emoji = data.get('emoji')
+    if not user or not message or not emoji:
+        return
+
+    existing = Reaction.query.filter_by(user_id=user.id, message_id=message.id, emoji=emoji).first()
+    if existing:
+        db.session.delete(existing)
+        action = 'removed'
+    else:
+        r = Reaction(user_id=user.id, message_id=message.id, emoji=emoji)
+        db.session.add(r)
+        action = 'added'
+    db.session.commit()
+
+    # Build summary
+    counts = {}
+    for r in message.reactions:
+        counts[r.emoji] = counts.get(r.emoji, 0) + 1
+
+    # Emit update to the room
+    try:
+        socketio.emit('reaction_updated', {'message_id': message.id, 'counts': counts}, room=str(message.room_id))
+    except Exception:
+        pass
+
 @socketio.on('disconnect')
 def on_disconnect():
     if 'username' in session:
@@ -491,6 +562,7 @@ def on_disconnect():
                 'status': 'offline',
                 'last_seen': user.last_seen.isoformat() if user.last_seen else None
             }, room=room.room_id)
+
 
 @socketio.on('edit_message')
 def handle_edit_message(data):
@@ -827,29 +899,73 @@ def get_room_media(room_id):
     if 'username' not in session:
         return jsonify({'error': 'Unauthorized'}), 401
     
-    user = User.query.filter_by(username=session['username']).first()
-    if not user:
+    current_user = User.query.filter_by(username=session['username']).first()
+    if not current_user:
         return jsonify({'error': 'User not found'}), 401
 
     room = Room.query.get_or_404(room_id)
-    if user not in room.users:
+    if current_user not in room.users:
         return jsonify({'error': 'Not authorized'}), 403
 
-    media_items = Media.query.join(Message).filter(Message.room_id == room_id).order_by(Message.timestamp.desc()).all()
+    # Get media items with their associated messages and users
+    media_items = db.session.query(Media, Message, User).join(
+        Message, Media.message_id == Message.id
+    ).join(
+        User, Message.user_id == User.id
+    ).filter(
+        Message.room_id == room_id
+    ).order_by(Message.timestamp.desc()).all()
     
     media_files_list = []
-    for media in media_items:
+    for media, message, user in media_items:
         media_files_list.append({
             'url': url_for('uploaded_file', filename=media.filename),
             'filename': media.filename,
-            'file_type': media.file_type
+            'file_type': media.file_type,
+            'message_id': message.id,
+            'username': user.username,
+            'profile_picture': user.profile_picture,
+            'timestamp': message.timestamp.strftime('%Y-%m-%d %H:%M:%S')
         })
 
     return jsonify(media_files_list)
 
 
+@app.route('/giphy_search')
+def giphy_search():
+    q = request.args.get('q', '').strip()
+    if not q:
+        return jsonify([])
+    api_key = os.environ.get('GIPHY_API_KEY', 'dc6zaTOxFJmzC')
+    params = urllib.parse.urlencode({'api_key': api_key, 'q': q, 'limit': 24, 'rating': 'pg-13'})
+    url = f'https://api.giphy.com/v1/gifs/search?{params}'
+    try:
+        with urllib.request.urlopen(url, timeout=10) as resp:
+            data = json.load(resp)
+        results = []
+        for item in data.get('data', []):
+            images = item.get('images', {})
+            preview = images.get('downsized_small') or images.get('fixed_width_small') or images.get('fixed_width')
+            thumb = images.get('fixed_width_small_still') or images.get('fixed_width_small')
+            results.append({
+                'id': item.get('id'),
+                'url': images.get('original', {}).get('url') or item.get('url'),
+                'preview': preview.get('mp4') if preview and preview.get('mp4') else (preview.get('url') if preview else None),
+                'thumb': thumb.get('url') if thumb else None
+            })
+        return jsonify(results)
+    except Exception as e:
+        app.logger.error(f'Giphy search error: {e}')
+        return jsonify([])
+
+
 if __name__ == '__main__':
     with app.app_context():
+        # Ensure database tables exist (creates new tables if missing)
+        try:
+            db.create_all()
+        except Exception as e:
+            print(f"Error creating DB tables: {e}")
         try:
             print("Resetting all online user statuses to 'offline'...")
             online_users = User.query.filter_by(status='online').all()

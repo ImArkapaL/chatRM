@@ -135,3 +135,41 @@
 2025-12-10 22:20:17,409 INFO upload_media(223) Upload media request received
 2025-12-10 22:20:17,444 INFO upload_media(244) Saving file 20250428_070641.jpg to E:\chatRM\static\uploads\20251210_165017_r1v17j78.jpg
 2025-12-10 22:20:17,451 INFO upload_media(246) File 20250428_070641.jpg saved successfully
+2025-12-10 22:58:04,972 INFO upload_media(226) Upload media request received
+2025-12-10 22:58:04,977 INFO upload_media(247) Saving file voice_1765387675750.webm to e:\chatRM\static\uploads\20251210_172804_7j1pnxlz.webm
+2025-12-10 22:58:04,978 INFO upload_media(249) File voice_1765387675750.webm saved successfully
+2025-12-10 23:04:47,573 INFO upload_media(226) Upload media request received
+2025-12-10 23:04:47,592 INFO upload_media(247) Saving file voice_1765388080873.webm to e:\chatRM\static\uploads\20251210_173447_j9x2v5nx.webm
+2025-12-10 23:04:47,595 INFO upload_media(249) File voice_1765388080873.webm saved successfully
+2025-12-10 23:20:42,554 INFO upload_media(226) Upload media request received
+2025-12-10 23:20:42,557 INFO upload_media(247) Saving file voice_1765389038413.webm to e:\chatRM\static\uploads\20251210_175042_n903l1b4.webm
+2025-12-10 23:20:42,560 INFO upload_media(249) File voice_1765389038413.webm saved successfully
+2025-12-10 23:23:27,185 INFO upload_media(226) Upload media request received
+2025-12-10 23:23:27,189 INFO upload_media(247) Saving file voice_1765389205330.webm to e:\chatRM\static\uploads\20251210_175327_wuansc21.webm
+2025-12-10 23:23:27,194 INFO upload_media(249) File voice_1765389205330.webm saved successfully
+2025-12-10 23:24:05,903 INFO upload_media(226) Upload media request received
+2025-12-10 23:24:05,938 INFO upload_media(226) Upload media request received
+2025-12-10 23:24:05,964 INFO upload_media(247) Saving file 20250428_070547.jpg to e:\chatRM\static\uploads\20251210_175405_elrwlrce.jpg
+2025-12-10 23:24:05,971 INFO upload_media(249) File 20250428_070547.jpg saved successfully
+2025-12-10 23:24:05,978 INFO upload_media(247) Saving file 20250428_070545.jpg to e:\chatRM\static\uploads\20251210_175405_84py95m7.jpg
+2025-12-10 23:24:05,986 INFO upload_media(249) File 20250428_070545.jpg saved successfully
+2025-12-10 23:27:57,682 INFO upload_media(226) Upload media request received
+2025-12-10 23:27:57,684 INFO upload_media(247) Saving file voice_1765389473337.webm to e:\chatRM\static\uploads\20251210_175757_oc25t5b6.webm
+2025-12-10 23:27:57,685 INFO upload_media(249) File voice_1765389473337.webm saved successfully
+2025-12-10 23:36:47,232 INFO upload_media(226) Upload media request received
+2025-12-10 23:36:47,235 INFO upload_media(247) Saving file voice_1765390003577.webm to e:\chatRM\static\uploads\20251210_180647_vz3d2a91.webm
+2025-12-10 23:36:47,236 INFO upload_media(249) File voice_1765390003577.webm saved successfully
+2025-12-10 23:37:08,537 INFO upload_media(226) Upload media request received
+2025-12-10 23:37:08,541 INFO upload_media(247) Saving file voice_1765390026728.webm to e:\chatRM\static\uploads\20251210_180708_zqgfejlj.webm
+2025-12-10 23:37:08,542 INFO upload_media(249) File voice_1765390026728.webm saved successfully
+2025-12-10 23:45:37,488 INFO upload_media(226) Upload media request received
+2025-12-10 23:45:37,491 INFO upload_media(247) Saving file voice_1765390535511.webm to e:\chatRM\static\uploads\20251210_181537_gzy4k1pb.webm
+2025-12-10 23:45:37,493 INFO upload_media(249) File voice_1765390535511.webm saved successfully
+2025-12-11 00:14:11,805 ERROR giphy_search(947) Giphy search error: HTTP Error 403: Forbidden
+2025-12-11 00:14:13,695 ERROR giphy_search(947) Giphy search error: HTTP Error 403: Forbidden
+2025-12-11 09:39:22,709 INFO upload_media(251) Upload media request received
+2025-12-11 09:39:22,857 INFO upload_media(272) Saving file 20250428_065802.mp4 to e:\chatRM\static\uploads\20251211_040922_m14qlp3b.mp4
+2025-12-11 09:39:22,920 INFO upload_media(274) File 20250428_065802.mp4 saved successfully
+2025-12-11 12:49:20,049 INFO upload_media(251) Upload media request received
+2025-12-11 12:49:20,052 INFO upload_media(272) Saving file voice_1765437556559.webm to e:\chatRM\static\uploads\20251211_071920_adsusqst.webm
+2025-12-11 12:49:20,053 INFO upload_media(274) File voice_1765437556559.webm saved successfully
