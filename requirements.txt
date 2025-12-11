@@ -3,3 +3,6 @@ Flask-SQLAlchemy
 Flask-Bcrypt
 Flask-SocketIO==5.1.1
 pytz==2021.3
+gunicorn
+python-dotenv
+psycopg2-binary

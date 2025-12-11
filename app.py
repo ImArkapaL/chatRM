@@ -18,9 +18,17 @@ import urllib.parse
 import json
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret!'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'secret!')
 basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'instance', 'db.sqlite3')
+
+# Database configuration - use PostgreSQL on Railway, SQLite locally
+database_url = os.environ.get('DATABASE_URL')
+if database_url and database_url.startswith('postgres://'):
+    database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+else:
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'instance', 'db.sqlite3')
+
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 socketio = SocketIO(app, max_http_buffer_size=50*1024*1024, ping_interval=60, ping_timeout=30)  # 50MB limit for Socket.IO messages
 
@@ -976,4 +984,6 @@ if __name__ == '__main__':
         except Exception as e:
             print(f"Error resetting user statuses: {e}")
             db.session.rollback()
-    socketio.run(app, debug=True, host='0.0.0.0', port=5001, use_reloader=False)
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_ENV') != 'production'
+    socketio.run(app, debug=debug_mode, host='0.0.0.0', port=port, use_reloader=False)
