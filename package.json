@@ -1,0 +1,16 @@
+{
+  "name": "chatRM",
+  "version": "1.0.0",
+  "description": "Real-time chat application with YouTube, voice messages, and reactions",
+  "main": "cloud/main.js",
+  "scripts": {
+    "start": "parse-server --appId $APP_ID --masterKey $MASTER_KEY --serverURL $SERVER_URL"
+  },
+  "dependencies": {
+    "parse-server": "^5.0.0",
+    "parse": "^3.0.0"
+  },
+  "engines": {
+    "node": "16.x"
+  }
+}
